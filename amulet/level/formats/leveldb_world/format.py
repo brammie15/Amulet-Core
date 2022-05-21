@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import struct
 import warnings
@@ -109,6 +110,8 @@ class LevelDBFormat(WorldFormatWrapper):
     # A class to manage dimension data. This is private
     _dimension_manager: Optional[LevelDBDimensionManager]
 
+    _root_tag: Optional[BedrockLevelDAT]
+
     def __init__(self, path: str):
         """
         Construct a new instance of :class:`LevelDBFormat`.
@@ -119,24 +122,21 @@ class LevelDBFormat(WorldFormatWrapper):
         """
         super().__init__(path)
         self._platform = "bedrock"
-        self._root_tag: BedrockLevelDAT = BedrockLevelDAT(
-            os.path.join(path, "level.dat")
-        )
+        self._root_tag = None
         self._db = None
         self._dimension_manager = None
-        self._shallow_load()
+        with contextlib.suppress(FileNotFoundError):
+            # if creating a world this will error so we should skip it
+            # TODO: perhaps this should be loaded in a public load_metadata method
+            self._load_metadata()
 
-    def _shallow_load(self):
-        try:
-            self._load_level_dat()
-        except:
-            pass
-
-    def _load_level_dat(self):
+    def _load_metadata(self):
         """Load the level.dat file and check the image file"""
         if os.path.isfile(os.path.join(self.path, "world_icon.jpeg")):
             self._world_image_path = os.path.join(self.path, "world_icon.jpeg")
-        self.root_tag = BedrockLevelDAT(os.path.join(self.path, "level.dat"))
+        else:
+            self._world_image_path = self._missing_world_icon
+        self._root_tag = BedrockLevelDAT(os.path.join(self.path, "level.dat"))
 
     @staticmethod
     def is_valid(path: str):
@@ -168,10 +168,14 @@ class LevelDBFormat(WorldFormatWrapper):
     @property
     def root_tag(self) -> BedrockLevelDAT:
         """The level.dat data for the level."""
+        if self._root_tag is None:
+            raise Exception("Could not load the level.dat file.")
         return self._root_tag
 
     @root_tag.setter
     def root_tag(self, root_tag: Union[nbt.NBTFile, nbt.TAG_Compound, BedrockLevelDAT]):
+        if self._root_tag is None:
+            raise Exception("Could not load the level.dat file.")
         if isinstance(root_tag, nbt.TAG_Compound):
             self._root_tag.value = root_tag
         elif isinstance(root_tag, nbt.NBTFile):

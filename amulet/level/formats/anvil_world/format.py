@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import struct
 from typing import Tuple, Dict, Generator, Optional, List, Union, Iterable, BinaryIO
@@ -51,6 +52,7 @@ class AnvilFormat(WorldFormatWrapper):
 
     _platform: PlatformType
     _version: VersionNumberInt
+    _root_tag: Optional[nbt.NBTFile]
 
     def __init__(self, path: str):
         """
@@ -62,25 +64,20 @@ class AnvilFormat(WorldFormatWrapper):
         """
         super().__init__(path)
         self._platform = "java"
-        self._root_tag: nbt.NBTFile = nbt.NBTFile()
+        self._root_tag = None
         self._levels: Dict[InternalDimension, AnvilDimensionManager] = {}
         self._dimension_name_map: Dict[Dimension, InternalDimension] = {}
         self._mcc_support: Optional[bool] = None
         self._lock_time: Optional[bytes] = None
         self._lock: Optional[BinaryIO] = None
         self._data_pack: Optional[DataPackManager] = None
-        self._shallow_load()
+        with contextlib.suppress(FileNotFoundError):
+            self._load_metadata()
 
     def __del__(self):
         self.close()
 
-    def _shallow_load(self):
-        try:
-            self._load_level_dat()
-        except:
-            pass
-
-    def _load_level_dat(self):
+    def _load_metadata(self):
         """Load the level.dat file and check the image file"""
         if os.path.isfile(os.path.join(self.path, "icon.png")):
             self._world_image_path = os.path.join(self.path, "icon.png")
@@ -128,6 +125,8 @@ class AnvilFormat(WorldFormatWrapper):
     @property
     def root_tag(self) -> nbt.NBTFile:
         """The level.dat data for the level."""
+        if self._root_tag is None:
+            raise Exception("Could not load the level.dat file.")
         return self._root_tag
 
     @root_tag.setter
@@ -365,7 +364,7 @@ class AnvilFormat(WorldFormatWrapper):
 
     def _reload_world(self):
         # reload the level.dat in case it has changed
-        self._load_level_dat()
+        self._load_metadata()
 
         # create the session.lock file (this has mostly been lifted from MCEdit)
         try:
