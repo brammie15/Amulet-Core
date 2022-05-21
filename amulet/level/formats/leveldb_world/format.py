@@ -24,7 +24,7 @@ from amulet.api.data_types import (
     Dimension,
     AnyNDArray,
 )
-from amulet.api.wrapper import WorldFormatWrapper, DefaultVersion
+from amulet.api.wrapper import WorldFormatWrapper
 from amulet.api.errors import ObjectWriteError, ObjectReadError, PlayerDoesNotExist
 
 from amulet.libs.leveldb import LevelDBException
@@ -97,13 +97,10 @@ class BedrockLevelDAT(nbt.NBTFile):
             filename_or_buffer.write(buffer.getvalue())
 
 
-class LevelDBFormat(WorldFormatWrapper):
+class LevelDBFormat(WorldFormatWrapper[VersionNumberTuple]):
     """
     This FormatWrapper class exists to interface with the Bedrock world format.
     """
-
-    _platform: PlatformType
-    _version: VersionNumberTuple
 
     # The leveldb database. Access it through the public property `level_db`
     _db: Optional[LevelDB]
@@ -148,7 +145,7 @@ class LevelDBFormat(WorldFormatWrapper):
 
     @property
     def version(self) -> VersionNumberTuple:
-        if self._version == DefaultVersion:
+        if self._version is None:
             self._version = self._get_version()
         return self._version
 
