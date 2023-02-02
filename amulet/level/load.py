@@ -37,6 +37,15 @@ def load_level(path: str) -> Union[World, Structure]:
             f"FormatWrapper of type {format_wrapper.__class__.__name__} is not supported. Report this to a developer."
         )
 
+def load_mcworld(path: str) -> Union[World, Structure]:
+    if(path.endswith(".mcworld")):
+        import zipfile
+        with zipfile.ZipFile(path, "r") as zip_ref:
+            zip_ref.extractall(path[:-8])
+        return load_level()
+    else:
+        return load_level(path)
+
 
 def load_format(path: str) -> Union[WorldFormatWrapper, StructureFormatWrapper]:
     """
